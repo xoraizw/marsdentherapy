@@ -1,606 +1,573 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Sun, MessageCircle, MessageSquare, Sparkles, ShoppingBag, Users, ArrowLeft,
-  RefreshCw, Trash2, TrendingUp, Activity, ExternalLink, Mail, Calendar, Heart
-} from 'lucide-react'
-import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts'
-import { getEvents, clearEvents, seedIfEmpty } from '../lib/analytics'
 
-const PALETTE = ['#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#f97316', '#fb923c', '#fdba74', '#facc15']
-const SHOP_URL = 'https://theshinehopestore.com/'
-const MEASURE_URL = 'https://theshinehopecompany.com/measure-your-hope/'
+// ── Dummy Data ────────────────────────────────────────────────────────────────
+
+const TEAL = '#2a9d8f'
+const TEAL_DARK = '#1d7a6e'
+const TEAL_MID = '#4db8aa'
+const TEAL_LIGHT = '#e6f5f3'
+const NAVY = '#1a3a4a'
+
+const statCards = [
+  { label: 'Page Visits', value: '3,284', change: '+12.4%', up: true, icon: '🌐', sub: 'Last 30 days' },
+  { label: 'Chatbot Opens', value: '847', change: '+8.1%', up: true, icon: '💬', sub: 'Last 30 days' },
+  { label: 'Booking Requests', value: '64', change: '+21.3%', up: true, icon: '📅', sub: 'Last 30 days' },
+  { label: 'Avg. Response Time', value: '1.2s', change: '-0.3s', up: true, icon: '⚡', sub: 'Chatbot speed' },
+  { label: 'NDIS Enquiries', value: '38', change: '+5.6%', up: true, icon: '✅', sub: 'Last 30 days' },
+  { label: 'Conversion Rate', value: '7.6%', change: '+1.2%', up: true, icon: '📈', sub: 'Visits → Bookings' },
+]
+
+const visitsData = [
+  { day: 'Mon', visits: 420, chatbot: 98, bookings: 8 },
+  { day: 'Tue', visits: 380, chatbot: 84, bookings: 6 },
+  { day: 'Wed', visits: 510, chatbot: 127, bookings: 11 },
+  { day: 'Thu', visits: 490, chatbot: 112, bookings: 9 },
+  { day: 'Fri', visits: 560, chatbot: 142, bookings: 14 },
+  { day: 'Sat', visits: 280, chatbot: 60, bookings: 5 },
+  { day: 'Sun', visits: 210, chatbot: 41, bookings: 3 },
+]
+
+const monthlyData = [
+  { month: 'Jan', visits: 2100, bookings: 38 },
+  { month: 'Feb', visits: 2340, bookings: 44 },
+  { month: 'Mar', visits: 2800, bookings: 52 },
+  { month: 'Apr', visits: 2600, bookings: 48 },
+  { month: 'May', visits: 3100, bookings: 58 },
+  { month: 'Jun', visits: 3284, bookings: 64 },
+]
+
+const serviceBreakdown = [
+  { name: 'Speech Therapy', value: 32, color: TEAL },
+  { name: 'Occupational Therapy', value: 24, color: TEAL_MID },
+  { name: 'Psychology', value: 18, color: '#52b69a' },
+  { name: 'PBS / BSP', value: 12, color: '#76c893' },
+  { name: 'CBT', value: 8, color: '#99d98c' },
+  { name: 'Joint OT / Speech', value: 6, color: '#b5e48c' },
+]
+
+const topQuestions = [
+  { q: 'What is occupational therapy?', count: 48 },
+  { q: 'Do you accept NDIS funding?', count: 41 },
+  { q: 'How do I book an appointment?', count: 37 },
+  { q: 'What areas do you service?', count: 29 },
+  { q: 'Do you offer telehealth?', count: 24 },
+  { q: 'What age groups do you treat?', count: 19 },
+  { q: 'What is PBS / BSP?', count: 15 },
+  { q: 'How long are sessions?', count: 11 },
+]
+
+const recentBookings = [
+  { id: 'BK-1041', name: 'Sarah M.', service: 'Speech Therapy', location: 'Marsden Park NSW', day: 'Monday', time: '9:00 AM', funding: 'NDIS — Plan Managed', status: 'Confirmed' },
+  { id: 'BK-1040', name: 'James T.', service: 'Occupational Therapy', location: 'Cannington WA', day: 'Wednesday', time: '2:30 PM', funding: 'Private', status: 'Pending' },
+  { id: 'BK-1039', name: 'Aisha R.', service: 'Psychology', location: 'Marsden Park NSW', day: 'Friday', time: '11:00 AM', funding: 'NDIS — Self Managed', status: 'Confirmed' },
+  { id: 'BK-1038', name: 'Liam C.', service: 'PBS / BSP', location: 'Marsden Park NSW', day: 'Tuesday', time: '1:00 PM', funding: 'NDIS — Agency Managed', status: 'Confirmed' },
+  { id: 'BK-1037', name: 'Priya N.', service: 'CBT', location: 'Telehealth', day: 'Thursday', time: '3:00 PM', funding: 'Medicare', status: 'Pending' },
+  { id: 'BK-1036', name: 'Oliver K.', service: 'Joint Speech / OT', location: 'Marsden Park NSW', day: 'Monday', time: '10:30 AM', funding: 'NDIS — Plan Managed', status: 'Confirmed' },
+  { id: 'BK-1035', name: 'Emma W.', service: 'Speech Therapy', location: 'Cannington WA', day: 'Wednesday', time: '9:30 AM', funding: 'Private', status: 'Cancelled' },
+  { id: 'BK-1034', name: 'Noah F.', service: 'Occupational Therapy', location: 'Marsden Park NSW', day: 'Friday', time: '4:00 PM', funding: 'NDIS — Self Managed', status: 'Confirmed' },
+]
+
+const locationSplit = [
+  { name: 'Marsden Park NSW', value: 68 },
+  { name: 'Cannington WA', value: 22 },
+  { name: 'Telehealth', value: 10 },
+]
+
+const fundingTypes = [
+  { name: 'NDIS Plan Managed', value: 38, color: TEAL },
+  { name: 'NDIS Self Managed', value: 22, color: TEAL_MID },
+  { name: 'NDIS Agency Managed', value: 18, color: '#52b69a' },
+  { name: 'Private', value: 14, color: '#76c893' },
+  { name: 'Medicare', value: 8, color: '#99d98c' },
+]
+
+const VIEWS = ['Overview', 'Bookings', 'Chatbot', 'Analytics']
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [events, setEvents] = useState([])
-  const [activeView, setActiveView] = useState('overview')
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    seedIfEmpty()
-    setEvents(getEvents())
-    const handler = () => setEvents(getEvents())
-    window.addEventListener('hope-events-updated', handler)
-    window.addEventListener('storage', handler)
-    return () => {
-      window.removeEventListener('hope-events-updated', handler)
-      window.removeEventListener('storage', handler)
-    }
-  }, [tick])
-
-  const refresh = () => {
-    setEvents(getEvents())
-    setTick(t => t + 1)
-  }
-
-  const handleClear = () => {
-    if (confirm('Clear all dashboard data? This cannot be undone.')) {
-      clearEvents()
-      setEvents([])
-    }
-  }
-
-  const data = useMemo(() => analyze(events), [events])
+  const [activeView, setActiveView] = useState('Overview')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 text-slate-900">
-      {/* Decorative sun blobs */}
-      <div className="pointer-events-none fixed top-0 right-0 w-[40vw] h-[40vw] bg-yellow-200/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-      <div className="pointer-events-none fixed bottom-0 left-0 w-[35vw] h-[35vw] bg-amber-200/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
-
-      <div className="relative flex">
-        {/* Sidebar */}
-        <aside className="w-64 min-h-screen bg-white/80 backdrop-blur-xl border-r-2 border-amber-100 sticky top-0 h-screen flex flex-col shadow-xl">
-          <div className="p-6 flex items-center gap-3 border-b-2 border-amber-100">
-            <div className="bg-gradient-to-br from-amber-400 to-yellow-300 p-2.5 rounded-2xl shadow-md">
-              <Sun size={22} className="text-slate-900" strokeWidth={2.5} />
-            </div>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4faf9', fontFamily: "'Inter', 'Segoe UI', sans-serif", color: NAVY }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: sidebarOpen ? 240 : 64,
+        minHeight: '100vh',
+        background: '#fff',
+        borderRight: '1px solid #d4ede9',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'width 0.2s',
+        flexShrink: 0,
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        overflow: 'hidden',
+      }}>
+        {/* Logo */}
+        <div style={{ padding: '20px 16px', borderBottom: '1px solid #d4ede9', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${TEAL}, ${TEAL_DARK})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 18 }}>🌿</span>
+          </div>
+          {sidebarOpen && (
             <div>
-              <p className="font-extrabold text-slate-900 leading-tight">Shine Hope</p>
-              <p className="text-xs text-amber-600 font-bold">Dashboard</p>
+              <div style={{ fontWeight: 800, fontSize: 14, color: NAVY, lineHeight: 1.2 }}>Marsden Therapy</div>
+              <div style={{ fontSize: 11, color: TEAL, fontWeight: 600 }}>Admin Dashboard</div>
             </div>
-          </div>
+          )}
+        </div>
 
-          <nav className="flex-1 p-3 space-y-1.5">
-            <NavItem icon={Activity} label="Overview" active={activeView === 'overview'} onClick={() => setActiveView('overview')} />
-            <NavItem icon={MessageSquare} label="Conversations" active={activeView === 'conversations'} onClick={() => setActiveView('conversations')} />
-            <NavItem icon={Users} label="Leads" active={activeView === 'leads'} onClick={() => setActiveView('leads')} />
-            <NavItem icon={TrendingUp} label="Engagement" active={activeView === 'engagement'} onClick={() => setActiveView('engagement')} />
-          </nav>
-
-          <div className="p-3 border-t-2 border-amber-100 space-y-1.5">
-            <Link to="/" className="flex items-center gap-3 text-slate-600 hover:text-amber-700 hover:bg-amber-50 p-3 rounded-xl transition-all font-semibold text-sm">
-              <ArrowLeft size={18} />
-              Back to Site
-            </Link>
-            <button onClick={handleClear} className="w-full flex items-center gap-3 text-slate-500 hover:text-red-600 hover:bg-red-50 p-3 rounded-xl transition-all font-semibold text-sm">
-              <Trash2 size={18} />
-              Clear Data
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '12px 8px' }}>
+          {VIEWS.map(v => (
+            <button key={v} onClick={() => setActiveView(v)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              marginBottom: 4, textAlign: 'left', fontSize: 13, fontWeight: 600,
+              background: activeView === v ? TEAL_LIGHT : 'transparent',
+              color: activeView === v ? TEAL_DARK : '#5a7a72',
+              transition: 'all 0.15s',
+            }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>
+                {v === 'Overview' ? '📊' : v === 'Bookings' ? '📅' : v === 'Chatbot' ? '💬' : '📈'}
+              </span>
+              {sidebarOpen && v}
             </button>
-          </div>
-        </aside>
+          ))}
+        </nav>
 
-        {/* Main */}
-        <main className="flex-1 min-h-screen">
-          <header className="bg-white/70 backdrop-blur-xl border-b-2 border-amber-100 px-8 py-5 flex justify-between items-center sticky top-0 z-30 shadow-sm">
-            <div>
-              <h1 className="text-2xl font-extrabold text-slate-900 capitalize flex items-center gap-2">
-                {activeView === 'overview' && <>☀️ Hope at a Glance</>}
-                {activeView === 'conversations' && <>💬 Conversations</>}
-                {activeView === 'leads' && <>💛 Hope Community</>}
-                {activeView === 'engagement' && <>✨ Engagement</>}
-              </h1>
-              <p className="text-slate-600 text-sm mt-0.5">Stored locally in your browser · {events.length} events tracked</p>
-            </div>
-            <button
-              onClick={refresh}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-500 hover:to-yellow-400 text-slate-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-lg shadow-amber-200 active:scale-95 transition-all"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
-          </header>
+        {/* Bottom */}
+        <div style={{ padding: '12px 8px', borderTop: '1px solid #d4ede9' }}>
+          <Link to="/" style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+            borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600,
+            color: '#5a7a72', background: 'transparent',
+          }}>
+            <span style={{ fontSize: 16 }}>←</span>
+            {sidebarOpen && 'Back to Site'}
+          </Link>
+          <button onClick={() => setSidebarOpen(o => !o)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            fontSize: 13, fontWeight: 600, color: '#5a7a72', background: 'transparent', marginTop: 4,
+          }}>
+            <span style={{ fontSize: 16 }}>{sidebarOpen ? '◀' : '▶'}</span>
+            {sidebarOpen && 'Collapse'}
+          </button>
+        </div>
+      </aside>
 
-          <div className="p-8 space-y-6">
-            {activeView === 'overview' && <OverviewView data={data} />}
-            {activeView === 'conversations' && <ConversationsView data={data} />}
-            {activeView === 'leads' && <LeadsView data={data} />}
-            {activeView === 'engagement' && <EngagementView data={data} />}
+      {/* Main */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Header */}
+        <header style={{
+          background: '#fff', borderBottom: '1px solid #d4ede9', padding: '16px 28px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, zIndex: 20,
+        }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: NAVY }}>
+              {activeView === 'Overview' && '📊 Overview'}
+              {activeView === 'Bookings' && '📅 Bookings'}
+              {activeView === 'Chatbot' && '💬 Chatbot Analytics'}
+              {activeView === 'Analytics' && '📈 Site Analytics'}
+            </h1>
+            <p style={{ margin: 0, fontSize: 12, color: '#7a9e98', marginTop: 2 }}>
+              Marsden Therapy · June 2026 · Dummy data for demonstration
+            </p>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              background: TEAL_LIGHT, color: TEAL_DARK, fontSize: 11, fontWeight: 700,
+              padding: '4px 10px', borderRadius: 20, border: `1px solid #a8ddd7`,
+            }}>● Live</span>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${TEAL}, ${TEAL_DARK})`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14,
+            }}>A</div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
+          {activeView === 'Overview' && <OverviewView />}
+          {activeView === 'Bookings' && <BookingsView />}
+          {activeView === 'Chatbot' && <ChatbotView />}
+          {activeView === 'Analytics' && <AnalyticsView />}
         </main>
       </div>
     </div>
   )
 }
 
-// =============================================================================
-// VIEWS
-// =============================================================================
+// ── Views ─────────────────────────────────────────────────────────────────────
 
-function OverviewView({ data }) {
+function OverviewView() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard icon={MessageCircle} label="Chats Opened" value={data.opens} accent="amber" />
-        <StatCard icon={Users} label="Unique Visitors" value={data.uniqueSessions} accent="orange" />
-        <StatCard icon={MessageSquare} label="Conversations" value={data.conversations.length} accent="yellow" />
-        <StatCard icon={Sparkles} label="Measure Clicks" value={data.measureClicks} accent="amber" />
-        <StatCard icon={ShoppingBag} label="Shop Clicks" value={data.shopClicks} accent="orange" />
-        <StatCard icon={Heart} label="Hope Community" value={data.leads.length} accent="rose" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+        {statCards.map(s => <StatCard key={s.label} {...s} />)}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Topics Bar Chart */}
-        <Card title="Topics Asked About" icon={MessageSquare}>
-          {data.topics.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.topics} layout="vertical" margin={{ left: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#fde68a" />
-                <XAxis type="number" stroke="#92400e" tick={{ fill: '#92400e', fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" stroke="#92400e" tick={{ fill: '#1e293b', fontSize: 11 }} width={130} />
-                <Tooltip contentStyle={{ backgroundColor: '#fffbeb', border: '2px solid #fcd34d', borderRadius: '12px', color: '#1e293b' }} />
-                <Bar dataKey="value" fill="url(#sunGradient)" radius={[0, 8, 8, 0]} />
-                <defs>
-                  <linearGradient id="sunGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#fcd34d" />
-                    <stop offset="100%" stopColor="#f59e0b" />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty>No topics tracked yet.</Empty>}
-        </Card>
-
-        {/* Conversion Funnel */}
-        <Card title="Conversion Funnel" icon={TrendingUp}>
-          <FunnelStep label="Chatbot Opened" value={data.opens} max={data.opens} color="from-amber-400 to-yellow-300" />
-          <FunnelStep label="Selected an Option" value={data.optionSelects} max={data.opens} color="from-amber-500 to-yellow-400" />
-          <FunnelStep label="Sent a Message" value={data.conversations.length} max={data.opens} color="from-orange-400 to-amber-400" />
-          <FunnelStep label="Clicked CTA (Measure / Shop)" value={data.measureClicks + data.shopClicks} max={data.opens} color="from-orange-500 to-amber-500" />
-          <FunnelStep label="Joined Hope Community" value={data.leads.length} max={data.opens} color="from-rose-400 to-orange-400" />
-        </Card>
-      </div>
-
-      {/* Activity over time */}
-      <Card title="Activity Over Time (last 7 days)" icon={Activity}>
-        {data.byDay.length > 0 ? (
+      {/* Weekly chart + service breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+        <Card title="Weekly Traffic" subtitle="Visits, chatbot opens & bookings">
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={data.byDay}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#fde68a" />
-              <XAxis dataKey="day" stroke="#92400e" tick={{ fill: '#92400e', fontSize: 12 }} />
-              <YAxis stroke="#92400e" tick={{ fill: '#92400e', fontSize: 12 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#fffbeb', border: '2px solid #fcd34d', borderRadius: '12px', color: '#1e293b' }} />
-              <Line type="monotone" dataKey="opens" stroke="#f59e0b" strokeWidth={3} dot={{ fill: '#f59e0b', r: 5 }} name="Opens" />
-              <Line type="monotone" dataKey="conversations" stroke="#fb923c" strokeWidth={3} dot={{ fill: '#fb923c', r: 5 }} name="Conversations" />
-              <Line type="monotone" dataKey="leads" stroke="#e11d48" strokeWidth={3} dot={{ fill: '#e11d48', r: 5 }} name="Leads" />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : <Empty>No activity yet.</Empty>}
-      </Card>
-    </div>
-  )
-}
-
-function ConversationsView({ data }) {
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Topic Distribution" icon={MessageSquare}>
-          {data.topics.length > 0 ? (
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <div className="w-full md:w-1/2 h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={data.topics} cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={3} dataKey="value">
-                      {data.topics.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#fffbeb', border: '2px solid #fcd34d', borderRadius: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="w-full md:w-1/2 space-y-1.5">
-                {data.topics.map((t, i) => (
-                  <div key={t.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-amber-50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
-                      <span className="text-sm font-medium text-slate-700">{t.name}</span>
-                    </div>
-                    <span className="text-sm font-bold text-slate-900">{t.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : <Empty>No conversations yet.</Empty>}
-        </Card>
-
-        <Card title="Top User Questions" icon={Sparkles}>
-          {data.topQuestions.length > 0 ? (
-            <ul className="space-y-2.5">
-              {data.topQuestions.map((q, i) => (
-                <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-100">
-                  <span className="bg-gradient-to-br from-amber-400 to-yellow-300 text-slate-900 text-xs font-extrabold w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                  <p className="text-sm text-slate-800 leading-snug">{q}</p>
-                </li>
-              ))}
-            </ul>
-          ) : <Empty>No questions tracked yet.</Empty>}
-        </Card>
-      </div>
-
-      <Card title="Recent Conversations" icon={MessageSquare}>
-        {data.conversations.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-amber-50">
-                <tr className="text-left">
-                  <Th>User Said</Th>
-                  <Th>Bot Replied</Th>
-                  <Th>Topic</Th>
-                  <Th>When</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-amber-100">
-                {data.conversations.slice(0, 25).map(c => (
-                  <tr key={c.id} className="hover:bg-amber-50/50">
-                    <Td><span className="text-slate-900 font-medium">{truncate(c.userMessage, 60)}</span></Td>
-                    <Td><span className="text-slate-600">{truncate(c.botResponse, 80)}</span></Td>
-                    <Td><Pill>{c.topic || '—'}</Pill></Td>
-                    <Td><span className="text-xs text-slate-500">{new Date(c.timestamp).toLocaleString()}</span></Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <Empty>No conversations yet.</Empty>}
-      </Card>
-    </div>
-  )
-}
-
-function LeadsView({ data }) {
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard icon={Heart} label="Total Members" value={data.leads.length} accent="rose" />
-        <StatCard icon={Mail} label="With Email" value={data.leads.filter(l => l.email).length} accent="amber" />
-        <StatCard icon={TrendingUp} label="Conversion Rate" value={data.opens ? `${((data.leads.length / data.opens) * 100).toFixed(1)}%` : '0%'} accent="orange" />
-      </div>
-
-      <Card title="Most Requested Interests" icon={Sparkles}>
-        {data.interests.length > 0 ? (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.interests}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#fde68a" />
-              <XAxis dataKey="name" stroke="#92400e" tick={{ fill: '#92400e', fontSize: 11 }} angle={-15} textAnchor="end" height={60} />
-              <YAxis stroke="#92400e" tick={{ fill: '#92400e', fontSize: 12 }} allowDecimals={false} />
-              <Tooltip contentStyle={{ backgroundColor: '#fffbeb', border: '2px solid #fcd34d', borderRadius: '12px' }} />
-              <Bar dataKey="value" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+            <BarChart data={visitsData} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6f5f3" />
+              <XAxis dataKey="day" tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid #d4ede9`, borderRadius: 10, fontSize: 12 }} />
+              <Bar dataKey="visits" fill={TEAL_LIGHT} radius={[4,4,0,0]} name="Visits" />
+              <Bar dataKey="chatbot" fill={TEAL_MID} radius={[4,4,0,0]} name="Chatbot Opens" />
+              <Bar dataKey="bookings" fill={TEAL_DARK} radius={[4,4,0,0]} name="Bookings" />
             </BarChart>
           </ResponsiveContainer>
-        ) : <Empty>No interests captured yet.</Empty>}
-      </Card>
+        </Card>
 
-      <Card title="Hope Community Members" icon={Users}>
-        {data.leads.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-amber-50">
-                <tr className="text-left">
-                  <Th>Name</Th>
-                  <Th>Email</Th>
-                  <Th>Phone</Th>
-                  <Th>Interest</Th>
-                  <Th>Joined</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-amber-100">
-                {data.leads.slice(0, 50).map(l => (
-                  <tr key={l.id} className="hover:bg-amber-50/50">
-                    <Td><span className="font-bold text-slate-900">{l.name || '—'}</span></Td>
-                    <Td><span className="text-slate-700">{l.email || '—'}</span></Td>
-                    <Td><span className="text-slate-700">{l.phone || '—'}</span></Td>
-                    <Td><Pill>{l.interest || '—'}</Pill></Td>
-                    <Td><span className="text-xs text-slate-500">{new Date(l.timestamp).toLocaleString()}</span></Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <Card title="Service Breakdown" subtitle="Booking requests by service">
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={serviceBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
+                {serviceBreakdown.map((s, i) => <Cell key={i} fill={s.color} />)}
+              </Pie>
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid #d4ede9`, borderRadius: 10, fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
+            {serviceBreakdown.map(s => (
+              <div key={s.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
+                  <span style={{ color: '#5a7a72' }}>{s.name}</span>
+                </div>
+                <span style={{ fontWeight: 700, color: NAVY }}>{s.value}%</span>
+              </div>
+            ))}
           </div>
-        ) : <Empty>No members yet — when someone signs up via the chatbot, they appear here.</Empty>}
+        </Card>
+      </div>
+
+      {/* Recent bookings */}
+      <Card title="Recent Booking Requests" subtitle="Latest submissions from the chatbot form">
+        <BookingsTable rows={recentBookings.slice(0, 5)} />
       </Card>
     </div>
   )
 }
 
-function EngagementView({ data }) {
+function BookingsView() {
+  const [filter, setFilter] = useState('All')
+  const statuses = ['All', 'Confirmed', 'Pending', 'Cancelled']
+  const filtered = filter === 'All' ? recentBookings : recentBookings.filter(b => b.status === filter)
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="CTA Click Performance" icon={ExternalLink}>
-          <div className="grid grid-cols-2 gap-4">
-            <CtaCard
-              icon={Sparkles}
-              label="Measure Your Hope"
-              count={data.measureClicks}
-              url={MEASURE_URL}
-              gradient="from-amber-400 to-yellow-300"
-            />
-            <CtaCard
-              icon={ShoppingBag}
-              label="Hope Shop"
-              count={data.shopClicks}
-              url={SHOP_URL}
-              gradient="from-orange-400 to-amber-300"
-            />
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100">
-              <p className="font-bold text-slate-700 mb-1">Quick Bar</p>
-              <p className="text-slate-600">{data.ctaBySource.quickbar} clicks</p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100">
-              <p className="font-bold text-slate-700 mb-1">Inline Buttons</p>
-              <p className="text-slate-600">{data.ctaBySource.inline} clicks</p>
-            </div>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <StatCard label="Total Bookings" value="64" change="+21.3%" up icon="📅" sub="This month" />
+        <StatCard label="Confirmed" value="48" change="+18%" up icon="✅" sub="75% of total" />
+        <StatCard label="Pending" value="12" change="+3" up icon="⏳" sub="Awaiting confirm" />
+        <StatCard label="Cancelled" value="4" change="-2" up={false} icon="❌" sub="vs last month" />
+      </div>
+
+      {/* Funding breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <Card title="Funding Type Breakdown" subtitle="How clients fund their sessions">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={fundingTypes} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6f5f3" horizontal={false} />
+              <XAxis type="number" tick={{ fill: '#7a9e98', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="name" type="category" tick={{ fill: '#5a7a72', fontSize: 11 }} width={130} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid #d4ede9`, borderRadius: 10, fontSize: 12 }} />
+              <Bar dataKey="value" radius={[0,4,4,0]}>
+                {fundingTypes.map((f, i) => <Cell key={i} fill={f.color} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </Card>
 
-        <Card title="Most-Picked Menu Options" icon={MessageCircle}>
-          {data.optionStats.length > 0 ? (
-            <div className="space-y-3">
-              {data.optionStats.map((o, i) => (
-                <div key={o.label} className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-amber-400 to-yellow-300 text-slate-900 text-xs font-extrabold w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0">{i + 1}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-slate-900">{o.label}</span>
-                      <span className="text-xs font-bold text-amber-700">{o.count}</span>
-                    </div>
-                    <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full" style={{ width: `${(o.count / Math.max(...data.optionStats.map(s => s.count))) * 100}%` }} />
-                    </div>
-                  </div>
+        <Card title="Location Split" subtitle="Where clients prefer to be seen">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {locationSplit.map(l => (
+              <div key={l.name}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, marginBottom: 5 }}>
+                  <span style={{ color: NAVY }}>{l.name}</span>
+                  <span style={{ color: TEAL_DARK }}>{l.value}%</span>
                 </div>
-              ))}
-            </div>
-          ) : <Empty>No option clicks yet.</Empty>}
+                <div style={{ height: 8, background: '#e6f5f3', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${l.value}%`, background: `linear-gradient(90deg, ${TEAL}, ${TEAL_MID})`, borderRadius: 4, transition: 'width 0.6s' }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
 
-      <Card title="Activity Heatmap by Hour" icon={Calendar}>
-        <div className="grid grid-cols-12 md:grid-cols-24 gap-1.5">
-          {data.byHour.map((h, i) => (
-            <div
-              key={i}
-              className="aspect-square rounded-md flex items-center justify-center text-[10px] font-bold border border-amber-100"
-              style={{
-                background: h.count === 0
-                  ? '#fffbeb'
-                  : `rgba(245, 158, 11, ${Math.min(0.15 + (h.count / Math.max(1, data.maxHour)) * 0.85, 1)})`,
-                color: h.count > data.maxHour * 0.5 ? 'white' : '#92400e'
-              }}
-              title={`${h.hour}:00 — ${h.count} events`}
-            >
-              {h.hour}
+      {/* Full bookings table */}
+      <Card title="All Booking Requests" subtitle={`${filtered.length} records`}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {statuses.map(s => (
+            <button key={s} onClick={() => setFilter(s)} style={{
+              padding: '5px 14px', borderRadius: 20, border: `1px solid ${filter === s ? TEAL : '#d4ede9'}`,
+              background: filter === s ? TEAL_LIGHT : '#fff', color: filter === s ? TEAL_DARK : '#7a9e98',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}>{s}</button>
+          ))}
+        </div>
+        <BookingsTable rows={filtered} />
+      </Card>
+    </div>
+  )
+}
+
+function ChatbotView() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <StatCard label="Chatbot Opens" value="847" change="+8.1%" up icon="💬" sub="This month" />
+        <StatCard label="Messages Sent" value="2,341" change="+11%" up icon="✉️" sub="User messages" />
+        <StatCard label="Booking CTAs Shown" value="312" change="+24%" up icon="📅" sub="Book btn renders" />
+        <StatCard label="CTA → Booking Rate" value="20.5%" change="+3.2%" up icon="🎯" sub="Of CTA shown" />
+      </div>
+
+      {/* Top questions */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <Card title="Top User Questions" subtitle="Most asked in the chatbot">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {topQuestions.map((q, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${TEAL}, ${TEAL_DARK})`,
+                  color: '#fff', fontSize: 10, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{i + 1}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: NAVY, fontWeight: 600, marginBottom: 3 }}>{q.q}</div>
+                  <div style={{ height: 5, background: '#e6f5f3', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(q.count / topQuestions[0].count) * 100}%`, background: `linear-gradient(90deg, ${TEAL}, ${TEAL_MID})`, borderRadius: 3 }} />
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: TEAL_DARK, flexShrink: 0 }}>{q.count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Daily Chatbot Activity" subtitle="Opens vs messages this week">
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={visitsData}>
+              <defs>
+                <linearGradient id="chatGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={TEAL} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6f5f3" />
+              <XAxis dataKey="day" tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid #d4ede9`, borderRadius: 10, fontSize: 12 }} />
+              <Area type="monotone" dataKey="chatbot" stroke={TEAL} strokeWidth={2.5} fill="url(#chatGrad)" name="Chatbot Opens" />
+              <Area type="monotone" dataKey="bookings" stroke={TEAL_DARK} strokeWidth={2.5} fill="none" name="Bookings via Chat" strokeDasharray="4 3" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Conversion funnel */}
+      <Card title="Chatbot Conversion Funnel" subtitle="From open to booking this month">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginTop: 8 }}>
+          {[
+            { label: 'Opened Chat', value: 847, pct: 100 },
+            { label: 'Sent a Message', value: 612, pct: 72 },
+            { label: 'Asked About Service', value: 394, pct: 47 },
+            { label: 'Saw Book Button', value: 312, pct: 37 },
+            { label: 'Submitted Booking', value: 64, pct: 7.6 },
+          ].map((f, i) => (
+            <div key={i} style={{ textAlign: 'center' }}>
+              <div style={{
+                height: `${Math.max(f.pct * 2, 20)}px`, background: `linear-gradient(180deg, ${TEAL}, ${TEAL_DARK})`,
+                borderRadius: 8, marginBottom: 8, opacity: 0.3 + (f.pct / 100) * 0.7,
+                transition: 'height 0.5s',
+              }} />
+              <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>{f.value}</div>
+              <div style={{ fontSize: 10, color: '#7a9e98', fontWeight: 600, marginTop: 2 }}>{f.label}</div>
+              <div style={{ fontSize: 10, color: TEAL_DARK, fontWeight: 700 }}>{f.pct}%</div>
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-500 mt-3">Hours with the most chatbot activity (0–23, your local time).</p>
       </Card>
     </div>
   )
 }
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-function analyze(events) {
-  const opens = events.filter(e => e.type === 'chatbot_open').length
-  const optionSelectsArr = events.filter(e => e.type === 'option_select')
-  const optionSelects = optionSelectsArr.length
-  const conversationsArr = events.filter(e => e.type === 'conversation').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-  const leadsArr = events.filter(e => e.type === 'lead').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-  const ctaArr = events.filter(e => e.type === 'cta_click')
-
-  const measureClicks = ctaArr.filter(e => e.ctaType === 'measure').length
-  const shopClicks = ctaArr.filter(e => e.ctaType === 'shop').length
-
-  const ctaBySource = {
-    quickbar: ctaArr.filter(e => e.source === 'quickbar').length,
-    inline: ctaArr.filter(e => e.source === 'inline').length
-  }
-
-  const uniqueSessions = new Set(events.map(e => e.sessionId).filter(Boolean)).size
-
-  // Topics
-  const topicMap = {}
-  conversationsArr.forEach(c => {
-    if (c.topic) topicMap[c.topic] = (topicMap[c.topic] || 0) + 1
-  })
-  const topics = Object.entries(topicMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-
-  // Top questions (most recent unique-ish)
-  const seen = new Set()
-  const topQuestions = []
-  for (const c of conversationsArr) {
-    const key = (c.userMessage || '').toLowerCase().slice(0, 40)
-    if (!seen.has(key) && c.userMessage) {
-      seen.add(key)
-      topQuestions.push(c.userMessage)
-    }
-    if (topQuestions.length >= 8) break
-  }
-
-  // Interests
-  const interestMap = {}
-  leadsArr.forEach(l => {
-    const k = l.interest || 'Not specified'
-    interestMap[k] = (interestMap[k] || 0) + 1
-  })
-  const interests = Object.entries(interestMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-
-  // Option stats
-  const optionMap = {}
-  optionSelectsArr.forEach(o => {
-    const k = o.label || o.optionId
-    optionMap[k] = (optionMap[k] || 0) + 1
-  })
-  const optionStats = Object.entries(optionMap).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
-
-  // By day (last 7)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const byDay = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
-    const dayKey = d.toDateString()
-    const opensCount = events.filter(e => e.type === 'chatbot_open' && new Date(e.timestamp).toDateString() === dayKey).length
-    const conversationsCount = events.filter(e => e.type === 'conversation' && new Date(e.timestamp).toDateString() === dayKey).length
-    const leadsCount = events.filter(e => e.type === 'lead' && new Date(e.timestamp).toDateString() === dayKey).length
-    byDay.push({
-      day: d.toLocaleDateString(undefined, { weekday: 'short' }),
-      opens: opensCount,
-      conversations: conversationsCount,
-      leads: leadsCount
-    })
-  }
-
-  // By hour (24)
-  const byHour = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }))
-  events.forEach(e => {
-    const h = new Date(e.timestamp).getHours()
-    byHour[h].count += 1
-  })
-  const maxHour = Math.max(1, ...byHour.map(h => h.count))
-
-  return {
-    opens,
-    optionSelects,
-    uniqueSessions,
-    measureClicks,
-    shopClicks,
-    ctaBySource,
-    topics,
-    topQuestions,
-    conversations: conversationsArr,
-    leads: leadsArr,
-    interests,
-    optionStats,
-    byDay,
-    byHour,
-    maxHour
-  }
-}
-
-function truncate(s, n) {
-  if (!s) return ''
-  return s.length > n ? s.slice(0, n) + '…' : s
-}
-
-// =============================================================================
-// SMALL COMPONENTS
-// =============================================================================
-
-function NavItem({ icon: Icon, label, active, onClick }) {
+function AnalyticsView() {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 font-semibold text-sm ${
-        active
-          ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900 shadow-md'
-          : 'text-slate-600 hover:bg-amber-50 hover:text-amber-700'
-      }`}
-    >
-      <Icon size={18} strokeWidth={2.5} />
-      {label}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <StatCard label="Total Visits" value="3,284" change="+12.4%" up icon="🌐" sub="This month" />
+        <StatCard label="Unique Visitors" value="1,847" change="+9.8%" up icon="👤" sub="This month" />
+        <StatCard label="Avg. Session" value="2m 41s" change="+18s" up icon="⏱️" sub="Time on site" />
+        <StatCard label="Bounce Rate" value="38.2%" change="-3.1%" up icon="↩️" sub="Lower is better" />
+      </div>
+
+      {/* Monthly trend */}
+      <Card title="Monthly Growth" subtitle="Page visits and booking requests over 6 months">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={monthlyData}>
+            <defs>
+              <linearGradient id="visitGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={TEAL} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e6f5f3" />
+            <XAxis dataKey="month" tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="left" tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fill: '#7a9e98', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: '#fff', border: `1px solid #d4ede9`, borderRadius: 10, fontSize: 12 }} />
+            <Line yAxisId="left" type="monotone" dataKey="visits" stroke={TEAL} strokeWidth={3} dot={{ fill: TEAL, r: 5 }} name="Page Visits" />
+            <Line yAxisId="right" type="monotone" dataKey="bookings" stroke={TEAL_DARK} strokeWidth={3} dot={{ fill: TEAL_DARK, r: 5 }} name="Bookings" strokeDasharray="5 3" />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* Top pages */}
+        <Card title="Top Pages" subtitle="Most visited sections">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e6f5f3' }}>
+                <th style={{ textAlign: 'left', padding: '8px 0', color: '#7a9e98', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Page</th>
+                <th style={{ textAlign: 'right', padding: '8px 0', color: '#7a9e98', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Visits</th>
+                <th style={{ textAlign: 'right', padding: '8px 0', color: '#7a9e98', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { page: '/ (Home)', visits: 1240, pct: 37.8 },
+                { page: '/occupational-therapy', visits: 580, pct: 17.7 },
+                { page: '/speech-therapy', visits: 490, pct: 14.9 },
+                { page: '/book-now', visits: 380, pct: 11.6 },
+                { page: '/ndis', visits: 280, pct: 8.5 },
+                { page: '/psychology', visits: 180, pct: 5.5 },
+                { page: '/about-us', visits: 134, pct: 4.1 },
+              ].map((r, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f4faf9' }}>
+                  <td style={{ padding: '10px 0', color: NAVY, fontWeight: 600 }}>{r.page}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: '#5a7a72' }}>{r.visits.toLocaleString()}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: TEAL_DARK, fontWeight: 700 }}>{r.pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        {/* Traffic sources */}
+        <Card title="Traffic Sources" subtitle="Where visitors come from">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+            {[
+              { source: 'Organic Search', value: 48, color: TEAL },
+              { source: 'Direct', value: 24, color: TEAL_MID },
+              { source: 'Referral', value: 14, color: '#52b69a' },
+              { source: 'Social Media', value: 10, color: '#76c893' },
+              { source: 'Paid Ads', value: 4, color: '#99d98c' },
+            ].map(s => (
+              <div key={s.source}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, marginBottom: 5 }}>
+                  <span style={{ color: NAVY }}>{s.source}</span>
+                  <span style={{ color: s.color }}>{s.value}%</span>
+                </div>
+                <div style={{ height: 7, background: '#e6f5f3', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${s.value}%`, background: s.color, borderRadius: 4 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
   )
 }
 
-function Card({ title, icon: Icon, children }) {
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function BookingsTable({ rows }) {
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border-2 border-amber-100 shadow-lg shadow-amber-100/50">
-      <h2 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-        <div className="bg-gradient-to-br from-amber-300 to-yellow-200 p-2 rounded-xl">
-          <Icon size={16} className="text-slate-900" strokeWidth={2.5} />
-        </div>
-        {title}
-      </h2>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #e6f5f3' }}>
+            {['ID', 'Client', 'Service', 'Location', 'Day & Time', 'Funding', 'Status'].map(h => (
+              <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#7a9e98', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(b => (
+            <tr key={b.id} style={{ borderBottom: '1px solid #f4faf9' }}>
+              <td style={{ padding: '12px', color: TEAL_DARK, fontWeight: 700, fontFamily: 'monospace', fontSize: 11 }}>{b.id}</td>
+              <td style={{ padding: '12px', color: NAVY, fontWeight: 700 }}>{b.name}</td>
+              <td style={{ padding: '12px', color: '#5a7a72' }}>{b.service}</td>
+              <td style={{ padding: '12px', color: '#5a7a72', whiteSpace: 'nowrap' }}>{b.location}</td>
+              <td style={{ padding: '12px', color: '#5a7a72', whiteSpace: 'nowrap' }}>{b.day} · {b.time}</td>
+              <td style={{ padding: '12px', color: '#5a7a72' }}>{b.funding}</td>
+              <td style={{ padding: '12px' }}>
+                <span style={{
+                  padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                  background: b.status === 'Confirmed' ? '#e6f5f3' : b.status === 'Pending' ? '#fff8e1' : '#fde8e8',
+                  color: b.status === 'Confirmed' ? TEAL_DARK : b.status === 'Pending' ? '#b45309' : '#b91c1c',
+                  border: `1px solid ${b.status === 'Confirmed' ? '#a8ddd7' : b.status === 'Pending' ? '#fde68a' : '#fca5a5'}`,
+                }}>{b.status}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Card({ title, subtitle, children }) {
+  return (
+    <div style={{
+      background: '#fff', borderRadius: 16, border: '1px solid #d4ede9',
+      padding: 20, boxShadow: '0 2px 12px rgba(42,157,143,0.06)',
+    }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</h2>
+        {subtitle && <p style={{ margin: 0, fontSize: 11, color: '#7a9e98', marginTop: 2 }}>{subtitle}</p>}
+      </div>
       {children}
     </div>
   )
 }
 
-function StatCard({ icon: Icon, label, value, accent = 'amber' }) {
-  const gradients = {
-    amber: 'from-amber-400 to-yellow-300',
-    orange: 'from-orange-400 to-amber-300',
-    yellow: 'from-yellow-400 to-amber-200',
-    rose: 'from-rose-400 to-orange-300'
-  }
+function StatCard({ label, value, change, up, icon, sub }) {
   return (
-    <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border-2 border-amber-100 shadow-lg shadow-amber-100/40 hover:shadow-amber-200 hover:-translate-y-0.5 transition-all">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{label}</p>
-        <div className={`p-2 rounded-xl bg-gradient-to-br ${gradients[accent]} shadow-md`}>
-          <Icon size={16} className="text-slate-900" strokeWidth={2.5} />
-        </div>
+    <div style={{
+      background: '#fff', borderRadius: 16, border: '1px solid #d4ede9',
+      padding: '18px 20px', boxShadow: '0 2px 12px rgba(42,157,143,0.06)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#7a9e98', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+        <span style={{ fontSize: 20 }}>{icon}</span>
       </div>
-      <p className="text-3xl font-extrabold text-slate-900">{value}</p>
-    </div>
-  )
-}
-
-function FunnelStep({ label, value, max, color }) {
-  const pct = max > 0 ? (value / max) * 100 : 0
-  return (
-    <div className="mb-3">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-semibold text-slate-700">{label}</span>
-        <span className="text-sm font-extrabold text-slate-900">{value}</span>
-      </div>
-      <div className="h-3 bg-amber-100 rounded-full overflow-hidden">
-        <div className={`h-full bg-gradient-to-r ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      <div style={{ fontSize: 28, fontWeight: 900, color: NAVY, marginBottom: 6 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: up ? '#059669' : '#dc2626', fontWeight: 700 }}>
+          {up ? '▲' : '▼'} {change}
+        </span>
+        <span style={{ fontSize: 10, color: '#a0b4b0' }}>{sub}</span>
       </div>
     </div>
   )
-}
-
-function CtaCard({ icon: Icon, label, count, url, gradient }) {
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`block p-5 rounded-2xl bg-gradient-to-br ${gradient} hover:shadow-xl hover:-translate-y-0.5 transition-all text-slate-900 group`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <Icon size={18} strokeWidth={2.5} />
-        <span className="text-xs font-extrabold uppercase tracking-wider">{label}</span>
-        <ExternalLink size={12} className="opacity-50 group-hover:opacity-100 ml-auto" />
-      </div>
-      <p className="text-3xl font-extrabold">{count}</p>
-      <p className="text-xs font-semibold mt-1">total clicks</p>
-    </a>
-  )
-}
-
-function Th({ children }) {
-  return <th className="px-4 py-3 text-xs font-extrabold text-amber-800 uppercase tracking-wider">{children}</th>
-}
-
-function Td({ children }) {
-  return <td className="px-4 py-3 align-top">{children}</td>
-}
-
-function Pill({ children }) {
-  return <span className="inline-block px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">{children}</span>
-}
-
-function Empty({ children }) {
-  return <div className="text-center py-12 text-slate-500 text-sm">{children}</div>
 }
