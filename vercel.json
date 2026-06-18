@@ -1,5 +1,12 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/marsdentherapy-webpage.html",
+      "destination": "/marsdentherapy-webpage.html"
+    },
+    {
+      "source": "/((?!.*\\.).*)$",
+      "destination": "/index.html"
+    }
   ]
 }

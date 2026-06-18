@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
   const injectEnvPlugin = {
     name: 'inject-env-into-static-html',
 
-    // Dev: intercept the file as middleware
+    // Dev: intercept requests for the HTML file and inject the key
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url.includes('marsdentherapy-webpage.html')) return next()
@@ -23,13 +23,15 @@ export default defineConfig(({ mode }) => {
       })
     },
 
-    // Build: rewrite the copied static file in dist
+    // Build: copy the file into dist/ with the key injected
     closeBundle() {
-      const distFile = path.join(process.cwd(), 'dist', 'marsdentherapy-webpage.html')
-      if (fs.existsSync(distFile)) {
-        let html = fs.readFileSync(distFile, 'utf-8')
+      const src = path.join(process.cwd(), 'marsdentherapy-webpage.html')
+      const dest = path.join(process.cwd(), 'dist', 'marsdentherapy-webpage.html')
+      if (fs.existsSync(src)) {
+        let html = fs.readFileSync(src, 'utf-8')
         html = html.replace('</head>', injection + '</head>')
-        fs.writeFileSync(distFile, html)
+        fs.writeFileSync(dest, html)
+        console.log('[inject-env] wrote dist/marsdentherapy-webpage.html with key injected')
       }
     }
   }
